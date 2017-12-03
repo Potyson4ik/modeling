@@ -46,6 +46,7 @@ while system_time is None or system_time < T:
     system_time = server.get_nearest_event_time()
 
 print('Задачи принятые сервером', task_counter)
+print('Новое изменение')
 print('Обработано задач', len(server.output_tasks))
 info = ""
 for modules in server.modules.values():
