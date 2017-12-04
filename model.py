@@ -2,13 +2,14 @@ import random
 
 
 class Task:
-    def __init__(self, task_package, current_time):
+    def __init__(self, task_package, current_time, g_time):
         self.resources = task_package  # Пакет ресурсов, которые содержит задача
         self.runtime = 0  # Время обработки задачи
         self.wait_time = 0  # Время ожидания задачи в очереди
         self.time = current_time  # Системное время
         self.is_run = False  # True - задача в данный момент обрабатывается севером
         self.resource = self.resources[0]  # Текущий обрабатываемый ресурс задачи
+        self.generate_time = g_time  # Промежуток времени поступления задачи на сервер
 
     # Метод возвращает время обработки задачи на сервере
     def get_total_time(self):
@@ -51,10 +52,14 @@ class Module:
         self.wait_time_list = []  # Список промежутков времени бездействия модуля
         self.task_time_list = []  # Список промежутков времени поступления задач в модуль
         self.module_time_list = []  # Список промежутков времени обработки задач модулем
+        self.added_task = 0  # Количество принтых модулем задач
+        self.completed_task_counter = 0  # Счетчик выполненных задач
 
 
     # Метод добавляет задачу в модуль
     def add_task(self, task):
+        self.added_task += 1
+        self.task_time_list.append(abs(task.time - self.time))
         if self.busy:
             self.queue.append(task)
         else:
@@ -63,7 +68,7 @@ class Module:
             self.wait_time_list.append(time - self.time)
             self.wait_time += time - self.time
             task_time = self.generator(*self.generator_param)
-            self.task_time_list.append(task_time)
+            self.module_time_list.append(task_time)
             time += task_time
             self.task = task
             self.time = time
@@ -74,13 +79,14 @@ class Module:
         if self.busy:
             completed_task = self.task
             completed_task.stop_task(self.time)
+            self.completed_task_counter += 1
             if len(self.queue) == 0:
                 self.busy = False
                 self.task = None
             else:
                 task = self.queue.pop(0)
                 task_time = self.generator(*self.generator_param)
-                self.task_time_list.append(task_time)
+                self.module_time_list.append(task_time)
                 task.run_task(self.time)
                 self.task = task
                 self.time += task_time
@@ -88,6 +94,8 @@ class Module:
             return completed_task
         return None
 
+    def get_load(self):
+        return ((sum(self.module_time_list) / len(self.module_time_list))/(sum(self.task_time_list)/len(self.task_time_list)))
 
 class Server:
     def __init__(self, generators_param, generators, module_config):
@@ -160,3 +168,56 @@ class Server:
                 self.modules[next_resource][module_index].add_task(task)
             else:
                 self.output_tasks.append(task)
+
+
+class Model:
+    def __init__(self, runtime, task_package, module_gen, module_gen_params, task_gen, task_gen_params, module_config):
+        self.server = Server(module_gen_params, module_gen, module_config)
+        self.task_generator = task_gen
+        self.task_generator_params = task_gen_params
+        self.task_package = task_package
+        self.runtime = runtime
+
+    def start(self):
+        system_time = 0
+        task_time = self.task_generator(*self.task_generator_params)
+        system_time = task_time
+        task = Task(self.task_package[:], task_time, task_time)
+        task_counter = 1
+        while system_time is None or system_time < self.runtime:
+            if system_time is None or system_time >= task_time:
+                self.server.add_task(task)
+                g_time = self.task_generator(*self.task_generator_params)
+                task_time += g_time
+                task = Task(self.task_package[:], task_time, g_time)
+                task_counter += 1
+            else:
+                self.server.next_event()
+            system_time = self.server.get_nearest_event_time()
+
+        print('Задачи принятые сервером - ', task_counter)
+        print('Обработано задач - ', len(self.server.output_tasks))
+        info = """
+            Модуль: ресурс - {}, номер - {};
+            Выполнено задач модулем: {};
+            Задач в очереди: {};
+            Общее время обработки ресурсов: {:.3f};
+            Среднее время обработки ресурса: {:.3f};
+            Время ожидания новых ресурсов: {:.3f};
+            Среднее время ожидания ресурса: {:.3f};
+            Максимальное время ожидания ресурса: {:.3f};
+            Среднее время прихода заявок: {:.3f}
+            Загруженность модуля: {:.5f}
+            """
+        for resource, modules in self.server.modules.items():
+            for number, module in enumerate(modules):
+                print(info.format(resource, number,
+                                  module.completed_task_counter,
+                                  len(module.queue),
+                                  sum(module.module_time_list),
+                                  sum(module.module_time_list) / len(module.module_time_list),
+                                  module.wait_time,
+                                  module.wait_time / len(module.wait_time_list),
+                                  max(module.wait_time_list),
+                                  sum(module.task_time_list) / len(module.task_time_list),
+                                  module.get_load()))
