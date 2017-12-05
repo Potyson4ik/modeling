@@ -2,7 +2,7 @@ from model import *
 from math import exp
 
 
-T = 100000
+T = 10000
 tau_param = (0, 0.8)
 task_package = [1, 2, 4, 3]
 params_for_generators = {1: (4, 2), 2: (8, 2), 3: (0.1, 1), 4: (-0.3, 0.25)}

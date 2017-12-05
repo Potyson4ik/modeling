@@ -94,8 +94,17 @@ class Module:
             return completed_task
         return None
 
+    def get_avg_module_time(self):
+        return sum(self.module_time_list) / len(self.module_time_list)
+
+    def get_avg_task_time(self):
+        return sum(self.task_time_list) / len(self.task_time_list)
+
+    def get_avg_wait_time(self):
+        return self.wait_time / len(self.wait_time_list)
+
     def get_load(self):
-        return ((sum(self.module_time_list) / len(self.module_time_list))/(sum(self.task_time_list)/len(self.task_time_list)))
+        return self.get_avg_module_time()  / (self.get_avg_task_time() + self.get_avg_wait_time())
 
 class Server:
     def __init__(self, generators_param, generators, module_config):
@@ -198,26 +207,26 @@ class Model:
         print('Задачи принятые сервером - ', task_counter)
         print('Обработано задач - ', len(self.server.output_tasks))
         info = """
-            Модуль: ресурс - {}, номер - {};
-            Выполнено задач модулем: {};
-            Задач в очереди: {};
-            Общее время обработки ресурсов: {:.3f};
-            Среднее время обработки ресурса: {:.3f};
-            Время ожидания новых ресурсов: {:.3f};
-            Среднее время ожидания ресурса: {:.3f};
-            Максимальное время ожидания ресурса: {:.3f};
-            Среднее время прихода заявок: {:.3f}
-            Загруженность модуля: {:.5f}
-            """
+    Модуль: тип ресурса - {}, номер - {};
+        Выполнено задач: {};
+        Задачи оставшиеся в очереди: {};
+        Общее время обработки ресурсов: {:.3f};
+        Среднее время обработки ресурса: {:.3f};
+        Время ожидания новых ресурсов: {:.3f};
+        Среднее время ожидания ресурса: {:.3f};
+        Максимальное время ожидания ресурса: {:.3f};
+        Среднее время поступления ресурсов: {:.3f}
+        Загруженность модуля: {:.5f}"""
         for resource, modules in self.server.modules.items():
             for number, module in enumerate(modules):
                 print(info.format(resource, number,
                                   module.completed_task_counter,
                                   len(module.queue),
                                   sum(module.module_time_list),
-                                  sum(module.module_time_list) / len(module.module_time_list),
+                                  module.get_avg_module_time(),
                                   module.wait_time,
                                   module.wait_time / len(module.wait_time_list),
                                   max(module.wait_time_list),
-                                  sum(module.task_time_list) / len(module.task_time_list),
+                                  module.get_avg_task_time(),
                                   module.get_load()))
+            print()
