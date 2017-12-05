@@ -3,6 +3,7 @@ import random
 
 class Task:
     def __init__(self, task_package, current_time, g_time):
+        self.is_used = False
         self.resources = task_package  # Пакет ресурсов, которые содержит задача
         self.runtime = 0  # Время обработки задачи
         self.wait_time = 0  # Время ожидания задачи в очереди
@@ -17,6 +18,7 @@ class Task:
 
     # Метод запускает выполнение задачи
     def run_task(self, time):
+        self.is_used = True
         self.resource = self.resources.pop(0)
         self.wait_time += time - self.time
         self.time = time
@@ -55,24 +57,31 @@ class Module:
         self.added_task = 0  # Количество принтых модулем задач
         self.completed_task_counter = 0  # Счетчик выполненных задач
 
-
     # Метод добавляет задачу в модуль
     def add_task(self, task):
         self.added_task += 1
-        self.task_time_list.append(abs(task.time - self.time))
+        if not task.is_used:
+            self.task_time_list.append(abs(self.time - task.time))
+        else:
+            self.task_time_list.append(task.runtime + task.wait_time)
         if self.busy:
             self.queue.append(task)
+            self.wait_time_list.append(0)
         else:
             time = task.time
-            task.run_task(time)
             self.wait_time_list.append(time - self.time)
             self.wait_time += time - self.time
+            if not task.is_used:
+                task.run_task(time)
+            else:
+                task.run_task(self.time)
             task_time = self.generator(*self.generator_param)
             self.module_time_list.append(task_time)
             time += task_time
             self.task = task
             self.time = time
             self.busy = True
+            self.task
 
     # Метод завершает обработку текущей задачи и запускает следующую задачу (при наличии задачи в очереди)
     def next_task(self):
@@ -149,6 +158,7 @@ class Server:
                     min_module_time = module.time
                     module_index = (key, i)
         return module_index
+
     # Метод возвращает время ближайшего события на сервере
     def get_nearest_event_time(self):
         min_module_time = None
@@ -157,6 +167,7 @@ class Server:
                 if (min_module_time is None or module.time < min_module_time) and module.time > 0 and module.busy:
                     min_module_time = module.time
         return min_module_time
+
     # Метод выполняет следующее событие
     def next_event(self):
         key, index = self._get_module_index_by_nearest_event()
